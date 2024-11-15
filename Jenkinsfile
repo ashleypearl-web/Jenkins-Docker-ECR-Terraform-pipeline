@@ -50,7 +50,7 @@ pipeline {
             steps {
                 script {
                     // Build the Docker image based on the Dockerfile
-                    def dockerImage = docker.build("${IMAGE_NAME}:${TAG}", ".")
+                    def dockerImage = docker.build("${ECR_REPO}:${TAG}", ".")
                     
                     // Tag the image with "latest" in the correct ECR repository
                     dockerImage.tag("${ECR_REPO}:${TAG}")      // Tag the image with build number (e.g., 31)
