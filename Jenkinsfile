@@ -52,12 +52,13 @@ pipeline {
                     // Build the Docker image based on the Dockerfile
                     def dockerImage = docker.build("${IMAGE_NAME}:${TAG}", ".")
                     
-                    // Tag the image with "latest"
-                    dockerImage.tag("${IMAGE_NAME}:latest")
-                    
+                    // Tag the image with "latest" in the correct ECR repository
+                    dockerImage.tag("${ECR_REPO}:${TAG}")      // Tag the image with build number (e.g., 31)
+                    dockerImage.tag("${ECR_REPO}:latest")      // Tag the image with "latest"
+
                     // Push the Docker image to AWS ECR registry
                     docker.withRegistry(ashleyRegistry, registryCredential) {
-                        // Push with build number tag (e.g., 25)
+                        // Push with build number tag (e.g., 31)
                         dockerImage.push("${TAG}")
                         // Push with the 'latest' tag
                         dockerImage.push('latest')
@@ -65,6 +66,7 @@ pipeline {
                 }
             }
         }
+
 
         stage('Unit Test') {
             steps {
