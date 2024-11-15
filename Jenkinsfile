@@ -2,8 +2,8 @@ pipeline {
     agent { label 'jenkins-slave-ubuntu' }
 
     tools {
-        maven "Maven3.9"  
-        jdk "JDK17" 
+        maven "Maven3.9"
+        jdk "JDK17"
         terraform 'terraform'  // Ensure Terraform is installed and configured
     }
 
@@ -30,10 +30,7 @@ pipeline {
             steps {
                 script {
                     // Initialize Terraform and apply to provision EC2 instance(s)
-                    // Since Terraform files are in the root directory, no need to change directories
                     sh 'terraform init'  // Initialize Terraform
-                    
-                    // Apply Terraform to create infrastructure
                     sh 'terraform apply -auto-approve'
 
                     // Capture the output from Terraform (e.g., EC2 instance IP)
@@ -54,9 +51,7 @@ pipeline {
             steps {
                 script {
                     // Build the Docker image based on the Dockerfile
-                    def dockerImage = docker.build("${ECR_REPO}:${TAG}", ".")
-                    // Tag the image as 'latest' as well
-                    dockerImage.tag("${ECR_REPO}:latest")
+                    docker.build("${ECR_REPO}:${TAG}", ".")
                 }
             }
         }
@@ -103,14 +98,17 @@ pipeline {
         stage('Build and Push Docker Image') {
             steps {
                 script {
-                    // Assuming image is already built and tagged in previous stage
+                    // Build the Docker image from Dockerfile located in the current directory
                     def dockerImage = docker.build("${ECR_REPO}:${TAG}", ".")
+                    
+                    // Tag the image as 'latest'
+                    dockerImage.tag("${ECR_REPO}:latest")
                     
                     // Push the Docker image to AWS ECR registry
                     docker.withRegistry(ashleyRegistry, registryCredential) {
-                        // Push the image with the build number tag
+                        // Push with the build number tag
                         dockerImage.push(TAG)  // Push with build number tag
-                        // Push the image with the 'latest' tag
+                        // Push with the 'latest' tag
                         dockerImage.push('latest') // Push with 'latest' tag
                     }
                 }
