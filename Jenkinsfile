@@ -51,10 +51,10 @@ pipeline {
             steps {
                 script {
                     // Build the Docker image based on the Dockerfile
-                    def dockerImage = docker.build("${IMAGE_NAME}:${TAG}", ".")
+                    def dockerImage = docker.build("${ECR_REPO}:${TAG}", ".")
                     
                     // Tag the image with "latest"
-                    dockerImage.tag("${IMAGE_NAME}:latest")
+                    dockerImage.tag("${ECR_REPO}:latest")
                     
                     // Push the Docker image to AWS ECR registry
                     docker.withRegistry(ashleyRegistry, registryCredential) {
@@ -70,6 +70,7 @@ pipeline {
         stage('Unit Test') {
             steps {
                 // Run unit tests using Maven
+                sh 'mvn clean install'
                 sh 'mvn test'
             }
         }
