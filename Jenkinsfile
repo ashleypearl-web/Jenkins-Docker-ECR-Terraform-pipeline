@@ -14,8 +14,8 @@ pipeline {
         TAG = "${BUILD_NUMBER}"  // Docker tag (usually the Jenkins build number)
         SSH_KEY = credentials('Jenkins-ssh-keypair')  // Jenkins credentials for SSH key
         TERRAFORM_DIR = 'terraform'  // Directory where Terraform code is located
+        targetHost = ''  // Declare targetHost here to avoid issues
     }
-
 
     stages {
         stage('Fetch Code') {
@@ -32,7 +32,7 @@ pipeline {
                     dir("${TERRAFORM_DIR}") {
                         // Initialize Terraform
                         sh 'terraform init'
-                        
+
                         // Apply Terraform to create infrastructure
                         sh 'terraform apply -auto-approve'
 
@@ -43,7 +43,7 @@ pipeline {
                         // Set the IP based on environment
                         if (env.BRANCH_NAME == 'dev') {
                             targetHost = devIp
-                        } // <-- This closing brace was missing
+                        }
                     }
                 }
             }
@@ -53,7 +53,8 @@ pipeline {
             steps {
                 script {
                     // Build the Docker image based on the Dockerfile
-                    docker.build(IMAGE_NAME, ".")
+                    def dockerImage = docker.build("${ashleyRegistry}/${ECR_REPO}:${TAG}", ".")
+                    echo "Built Docker image: ${ashleyRegistry}/${ECR_REPO}:${TAG}"
                 }
             }
         }
@@ -97,16 +98,22 @@ pipeline {
             }
         }
 
-        stage('Build and Push Docker Image') {
+        stage('Tag and Push Docker Image') {
             steps {
                 script {
-                    // Build the Docker image from Dockerfile located in the current directory
-                    def dockerImage = docker.build(IMAGE_NAME, ".")
+                    // Tag the image as 'latest'
+                    dockerImage.tag("${ashleyRegistry}/${ECR_REPO}:latest")
+                    echo "Tagged Docker image as: ${ashleyRegistry}/${ECR_REPO}:latest"
 
-                    // Push the Docker image to AWS ECR registry
+                    // Push the image to AWS ECR registry
                     docker.withRegistry(ashleyRegistry, registryCredential) {
-                        dockerImage.push(TAG)  // Push with build number tag
-                        dockerImage.push('latest') // Push with 'latest' tag
+                        // Push with build number tag (e.g., 40)
+                        dockerImage.push("${TAG}")
+                        echo "Pushed Docker image: ${ashleyRegistry}/${ECR_REPO}:${TAG}"
+
+                        // Push with the 'latest' tag
+                        dockerImage.push('latest')
+                        echo "Pushed Docker image: ${ashleyRegistry}/${ECR_REPO}:latest"
                     }
                 }
             }
@@ -129,7 +136,7 @@ pipeline {
         stage('Container Security Scan - Trivy') {
             steps {
                 script {
-                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ECR_REPO}:${TAG}'
+                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ashleyRegistry}/${ECR_REPO}:${TAG}'
                 }
             }
         }
@@ -138,12 +145,15 @@ pipeline {
             steps {
                 script {
                     // Assuming targetHost is set from the previous stage
+                    if (!targetHost) {
+                        error "targetHost is not set. Deployment will not proceed."
+                    }
                     sh """
                     ssh -i ${SSH_KEY} ec2-user@${targetHost} << EOF
-                    docker pull ${ECR_REPO}:${TAG}
+                    docker pull ${ashleyRegistry}/${ECR_REPO}:${TAG}
                     docker stop ${IMAGE_NAME} || true
                     docker rm ${IMAGE_NAME} || true
-                    docker run -d --name ${IMAGE_NAME} -p 80:80 ${ECR_REPO}:${TAG}
+                    docker run -d --name ${IMAGE_NAME} -p 80:80 ${ashleyRegistry}/${ECR_REPO}:${TAG}
                     EOF
                     """
                 }
@@ -157,4 +167,3 @@ pipeline {
         }
     }  
 }
-  
