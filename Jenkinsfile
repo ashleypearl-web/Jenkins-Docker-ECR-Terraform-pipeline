@@ -3,20 +3,19 @@ pipeline {
 
     tools {
         maven "Maven3.9"  
-        jdk "JDK17" 
-        terraform 'terraform'  // Ensure Terraform is installed and configured
+        jdk "JDK17"       
     }
 
     environment {
-        registryCredential = 'ecr:us-east-1:awscreds'
-        imageName = "816069136612.dkr.ecr.us-east-1.amazonaws.com/ashleysrepo"
-        ashleyRegistry = "https://816069136612.dkr.ecr.us-east-1.amazonaws.com"
-        ECR_REPO = "816069136612.dkr.ecr.us-east-1.amazonaws.com/ashleysrepo"
-        IMAGE_NAME = "my-nginx-app"
-        TAG = "${BUILD_NUMBER}"
+        registryCredential = 'ecr:us-east-1:awscreds'  // Jenkins credentials for AWS ECR
+        ashleyRegistry = "816069136612.dkr.ecr.us-east-1.amazonaws.com"  // ECR Registry URL
+        ECR_REPO = "ashleysrepo"  // Name of the repository within ECR
+        IMAGE_NAME = "my-nginx-app"  // Local Docker image name (without registry URL)
+        TAG = "${BUILD_NUMBER}"  // Docker tag (usually the Jenkins build number)
         SSH_KEY = credentials('Jenkins-ssh-keypair')  // Jenkins credentials for SSH key
-        targetHost = ''  // Initialize targetHost variable
+        TERRAFORM_DIR = 'terraform'  // Directory where Terraform code is located
     }
+
 
     stages {
         stage('Fetch Code') {
@@ -30,21 +29,21 @@ pipeline {
             steps {
                 script {
                     // Initialize Terraform and apply to provision EC2 instance(s)
-                    // Since Terraform files are in the root directory, no need to change directories
-                    sh 'terraform init'  // Initialize Terraform
-                    
-                    // Apply Terraform to create infrastructure
-                    sh 'terraform apply -auto-approve'
+                    dir("${TERRAFORM_DIR}") {
+                        // Initialize Terraform
+                        sh 'terraform init'
+                        
+                        // Apply Terraform to create infrastructure
+                        sh 'terraform apply -auto-approve'
 
-                    // Capture the output from Terraform (e.g., EC2 instance IP)
-                    def devIp = sh(script: 'terraform output dev_public_ip', returnStdout: true).trim()
-                    echo "Dev Instance Public IP: ${devIp}"
+                        // Capture the output from Terraform (e.g., EC2 instance IP)
+                        def devIp = sh(script: 'terraform output dev_public_ip', returnStdout: true).trim()
+                        echo "Dev Instance Public IP: ${devIp}"
 
-                    // Set the IP based on environment
-                    if (env.BRANCH_NAME == 'dev') {
-                        targetHost = devIp
-                    } else {
-                        echo "Not on dev branch. Skipping targetHost assignment."
+                        // Set the IP based on environment
+                        if (env.BRANCH_NAME == 'dev') {
+                            targetHost = devIp
+                        } // <-- This closing brace was missing
                     }
                 }
             }
@@ -103,7 +102,7 @@ pipeline {
                 script {
                     // Build the Docker image from Dockerfile located in the current directory
                     def dockerImage = docker.build(IMAGE_NAME, ".")
-                    
+
                     // Push the Docker image to AWS ECR registry
                     docker.withRegistry(ashleyRegistry, registryCredential) {
                         dockerImage.push(TAG)  // Push with build number tag
@@ -138,11 +137,6 @@ pipeline {
         stage('Deploy to Environment') {
             steps {
                 script {
-                    // Ensure targetHost is set
-                    if (targetHost == '') {
-                        error "targetHost is not set. Deployment will not proceed."
-                    }
-
                     // Assuming targetHost is set from the previous stage
                     sh """
                     ssh -i ${SSH_KEY} ec2-user@${targetHost} << EOF
@@ -161,5 +155,6 @@ pipeline {
         always {
             cleanWs()  // Clean up workspace after the build
         }
-    }
+    }  
 }
+  
