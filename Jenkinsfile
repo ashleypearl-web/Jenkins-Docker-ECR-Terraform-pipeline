@@ -9,7 +9,7 @@ pipeline {
 
     environment {
         registryCredential = 'ecr:us-east-1:awscreds'
-        ashleyRegistry = "https://816069136612.dkr.ecr.us-east-1.amazonaws.com"
+        ashleyRegistry = "816069136612.dkr.ecr.us-east-1.amazonaws.com"
         ECR_REPO = "ashleysrepo"
         IMAGE_NAME = "my-nginx-app"  // Only the image name, without the registry URL
         TAG = "${BUILD_NUMBER}"  // Unique tag for the image
