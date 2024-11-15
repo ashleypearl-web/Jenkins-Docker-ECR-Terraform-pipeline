@@ -15,6 +15,7 @@ pipeline {
         TAG = "${BUILD_NUMBER}"
         SSH_KEY = credentials('Jenkins-ssh-keypair')  // Jenkins credentials for SSH key
         TERRAFORM_DIR = 'terraform'  // Directory where Terraform code is located
+        targetHost = ''  // Initialize targetHost variable
     }
 
     stages {
@@ -43,7 +44,10 @@ pipeline {
                         // Set the IP based on environment
                         if (env.BRANCH_NAME == 'dev') {
                             targetHost = devIp
-                    } //
+                        } else {
+                            echo "Not on dev branch. Skipping targetHost assignment."
+                        }
+                    }
                 }
             }
         }
@@ -101,7 +105,7 @@ pipeline {
                 script {
                     // Build the Docker image from Dockerfile located in the current directory
                     def dockerImage = docker.build(IMAGE_NAME, ".")
-
+                    
                     // Push the Docker image to AWS ECR registry
                     docker.withRegistry(ashleyRegistry, registryCredential) {
                         dockerImage.push(TAG)  // Push with build number tag
