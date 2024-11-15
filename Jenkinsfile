@@ -28,21 +28,17 @@ pipeline {
             steps {
                 script {
                     // Initialize Terraform and apply to provision EC2 instance(s)
-                    dir("${TERRAFORM_DIR}") {
-                        // Initialize Terraform
-                        sh 'terraform init'
+                    // Terraform is located in the root directory, so no need for a subdirectory reference
+                    sh 'terraform init'  // Initialize Terraform
+                    sh 'terraform apply -auto-approve'  // Apply the Terraform configuration
 
-                        // Apply Terraform to create infrastructure
-                        sh 'terraform apply -auto-approve'
+                    // Capture the output from Terraform (e.g., EC2 instance IP)
+                    def devIp = sh(script: 'terraform output dev_public_ip', returnStdout: true).trim()
+                    echo "Dev Instance Public IP: ${devIp}"
 
-                        // Capture the output from Terraform (e.g., EC2 instance IP)
-                        def devIp = sh(script: 'terraform output dev_public_ip', returnStdout: true).trim()
-                        echo "Dev Instance Public IP: ${devIp}"
-
-                        // Set the IP based on environment
-                        if (env.BRANCH_NAME == 'dev') {
-                            targetHost = devIp
-                        }
+                    // Set the IP based on environment
+                    if (env.BRANCH_NAME == 'dev') {
+                        targetHost = devIp
                     }
                 }
             }
