@@ -98,10 +98,10 @@ pipeline {
         stage('Build and Push Docker Image') {
             steps {
                 script {
-                    // Build the Docker image from Dockerfile located in the current directory
+                    // Build the Docker image from the Dockerfile located in the current directory
                     def dockerImage = docker.build("${ECR_REPO}:${TAG}", ".")
                     
-                    // Tag the image as 'latest'
+                    // Tag the image as 'latest' for the same repository
                     dockerImage.tag("${ECR_REPO}:latest")
                     
                     // Push the Docker image to AWS ECR registry
