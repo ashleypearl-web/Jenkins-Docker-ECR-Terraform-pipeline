@@ -98,22 +98,21 @@ pipeline {
         stage('Build and Push Docker Image') {
             steps {
                 script {
-                    // Build the Docker image from the Dockerfile located in the current directory
-                    def dockerImage = docker.build("${ECR_REPO}:${TAG}", ".")
+                    // Build the Docker image from Dockerfile located in the current directory
+                    def dockerImage = docker.build(IMAGE_NAME, ".")
                     
-                    // Tag the image as 'latest' for the same repository
+                    // Tag the Docker image as 'latest'
                     dockerImage.tag("${ECR_REPO}:latest")
                     
                     // Push the Docker image to AWS ECR registry
                     docker.withRegistry(ashleyRegistry, registryCredential) {
-                        // Push with the build number tag
-                        dockerImage.push(TAG)  // Push with build number tag
-                        // Push with the 'latest' tag
-                        dockerImage.push('latest') // Push with 'latest' tag
+                        dockerImage.push("${TAG}")  // Push with build number tag (e.g., 25)
+                        dockerImage.push('latest')   // Push with 'latest' tag
                     }
                 }
             }
         }
+
 
         stage('Success - Send Email Notification') {
             when {
