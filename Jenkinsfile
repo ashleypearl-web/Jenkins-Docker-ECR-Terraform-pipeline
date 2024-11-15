@@ -51,7 +51,7 @@ pipeline {
             steps {
                 script {
                     // Build the Docker image based on the Dockerfile
-                    docker.build("${ECR_REPO}:${TAG}", ".")
+                    docker.build("${IMAGE_NAME}", ".")
                 }
             }
         }
@@ -101,8 +101,11 @@ pipeline {
                     // Build the Docker image from Dockerfile located in the current directory
                     def dockerImage = docker.build(IMAGE_NAME, ".")
 
-                    // Tag the Docker image with the 'latest' tag for the ECR repository
-                    dockerImage.tag("${ECR_REPO}:latest")
+                    // Tag the Docker image with the ECR repository URL and the build number tag
+                    dockerImage.tag("${ECR_REPO}:${TAG}")  // Tag with build number (e.g., 25)
+                    
+                    // Also tag it with 'latest'
+                    dockerImage.tag("${ECR_REPO}:latest")  // Tag with 'latest'
 
                     // Push the Docker image to AWS ECR registry
                     docker.withRegistry(ashleyRegistry, registryCredential) {
@@ -130,7 +133,6 @@ pipeline {
         stage('Container Security Scan - Trivy') {
             steps {
                 script {
-                    // Scan the Docker image for vulnerabilities using Trivy
                     sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ECR_REPO}:${TAG}'
                 }
             }
@@ -148,7 +150,6 @@ pipeline {
                     sh """
                     ssh -i ${SSH_KEY} ec2-user@${targetHost} << EOF
                     docker pull ${ECR_REPO}:${TAG}
-                    docker ps  # List running containers for debugging
                     docker stop ${IMAGE_NAME} || true
                     docker rm ${IMAGE_NAME} || true
                     docker run -d --name ${IMAGE_NAME} -p 80:80 ${ECR_REPO}:${TAG}
