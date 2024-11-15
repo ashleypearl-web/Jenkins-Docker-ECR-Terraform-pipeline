@@ -3,7 +3,8 @@ pipeline {
 
     tools {
         maven "Maven3.9"  
-        jdk "JDK17"       
+        jdk "JDK17" 
+        terraform 'terraform'  // Ensure Terraform is installed and configured
     }
 
     environment {
@@ -14,7 +15,7 @@ pipeline {
         IMAGE_NAME = "my-nginx-app"
         TAG = "${BUILD_NUMBER}"
         SSH_KEY = credentials('Jenkins-ssh-keypair')  // Jenkins credentials for SSH key
-        TERRAFORM_DIR = 'terraform'  // Directory where Terraform code is located
+        targetHost = ''  // Initialize targetHost variable
     }
 
     stages {
@@ -29,21 +30,21 @@ pipeline {
             steps {
                 script {
                     // Initialize Terraform and apply to provision EC2 instance(s)
-                    dir("${TERRAFORM_DIR}") {
-                        // Initialize Terraform
-                        sh 'terraform init'
-                        
-                        // Apply Terraform to create infrastructure
-                        sh 'terraform apply -auto-approve'
+                    // Since Terraform files are in the root directory, no need to change directories
+                    sh 'terraform init'  // Initialize Terraform
+                    
+                    // Apply Terraform to create infrastructure
+                    sh 'terraform apply -auto-approve'
 
-                        // Capture the output from Terraform (e.g., EC2 instance IP)
-                        def devIp = sh(script: 'terraform output dev_public_ip', returnStdout: true).trim()
-                        echo "Dev Instance Public IP: ${devIp}"
+                    // Capture the output from Terraform (e.g., EC2 instance IP)
+                    def devIp = sh(script: 'terraform output dev_public_ip', returnStdout: true).trim()
+                    echo "Dev Instance Public IP: ${devIp}"
 
-                        // Set the IP based on environment
-                        if (env.BRANCH_NAME == 'dev') {
-                            targetHost = devIp
-                        } // <-- This closing brace was missing
+                    // Set the IP based on environment
+                    if (env.BRANCH_NAME == 'dev') {
+                        targetHost = devIp
+                    } else {
+                        echo "Not on dev branch. Skipping targetHost assignment."
                     }
                 }
             }
@@ -102,7 +103,7 @@ pipeline {
                 script {
                     // Build the Docker image from Dockerfile located in the current directory
                     def dockerImage = docker.build(IMAGE_NAME, ".")
-
+                    
                     // Push the Docker image to AWS ECR registry
                     docker.withRegistry(ashleyRegistry, registryCredential) {
                         dockerImage.push(TAG)  // Push with build number tag
@@ -137,6 +138,11 @@ pipeline {
         stage('Deploy to Environment') {
             steps {
                 script {
+                    // Ensure targetHost is set
+                    if (targetHost == '') {
+                        error "targetHost is not set. Deployment will not proceed."
+                    }
+
                     // Assuming targetHost is set from the previous stage
                     sh """
                     ssh -i ${SSH_KEY} ec2-user@${targetHost} << EOF
@@ -155,6 +161,5 @@ pipeline {
         always {
             cleanWs()  // Clean up workspace after the build
         }
-    }  
+    }
 }
-  
