@@ -13,7 +13,6 @@ pipeline {
         IMAGE_NAME = "my-nginx-app"  // Local Docker image name (without registry URL)
         TAG = "${BUILD_NUMBER}"  // Docker tag (usually the Jenkins build number)
         SSH_KEY = credentials('Jenkins-ssh-keypair')  // Jenkins credentials for SSH key
-        TERRAFORM_DIR = 'terraform'  // Directory where Terraform code is located
         targetHost = ''  // Declare targetHost here to avoid issues
     }
 
