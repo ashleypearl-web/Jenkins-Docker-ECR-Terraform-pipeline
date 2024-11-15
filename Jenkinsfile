@@ -3,7 +3,8 @@ pipeline {
 
     tools {
         maven "Maven3.9"  
-        jdk "JDK17"       
+        jdk "JDK17"   
+        terraform "terraform"    
     }
 
     environment {
