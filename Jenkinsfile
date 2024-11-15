@@ -43,7 +43,7 @@ pipeline {
                         // Set the IP based on environment
                         if (env.BRANCH_NAME == 'dev') {
                             targetHost = devIp
-                    }
+                    } //
                 }
             }
         }
