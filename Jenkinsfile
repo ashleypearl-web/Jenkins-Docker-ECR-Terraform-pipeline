@@ -13,7 +13,7 @@ pipeline {
         ashleyRegistry = "https://816069136612.dkr.ecr.us-east-1.amazonaws.com"
         ECR_REPO = "816069136612.dkr.ecr.us-east-1.amazonaws.com/ashleysrepo"
         IMAGE_NAME = "my-nginx-app"
-        TAG = "${BUILD_NUMBER}"
+        TAG = "${BUILD_NUMBER}"  // or any other tag like 'latest'
         SSH_KEY = credentials('Jenkins-ssh-keypair')  // Jenkins credentials for SSH key
         targetHost = ''  // Initialize targetHost variable
     }
@@ -102,14 +102,12 @@ pipeline {
                     def dockerImage = docker.build(IMAGE_NAME, ".")
 
                     // Tag the Docker image with the ECR repository URL and the build number tag
-                    dockerImage.tag("${ECR_REPO}:${TAG}")  // Tag with build number (e.g., 25)
-                    
-                    // Also tag it with 'latest'
+                    dockerImage.tag("${ECR_REPO}:${TAG}")  // Tag with build number (e.g., 28)
                     dockerImage.tag("${ECR_REPO}:latest")  // Tag with 'latest'
 
                     // Push the Docker image to AWS ECR registry
                     docker.withRegistry(ashleyRegistry, registryCredential) {
-                        dockerImage.push("${TAG}")  // Push with build number tag (e.g., 25)
+                        dockerImage.push("${TAG}")  // Push with build number tag (e.g., 28)
                         dockerImage.push('latest')   // Push with 'latest' tag
                     }
                 }
@@ -166,3 +164,4 @@ pipeline {
         }
     }
 }
+
