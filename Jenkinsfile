@@ -9,11 +9,10 @@ pipeline {
 
     environment {
         registryCredential = 'ecr:us-east-1:awscreds'
-        imageName = "816069136612.dkr.ecr.us-east-1.amazonaws.com/ashleysrepo"
         ashleyRegistry = "https://816069136612.dkr.ecr.us-east-1.amazonaws.com"
         ECR_REPO = "816069136612.dkr.ecr.us-east-1.amazonaws.com/ashleysrepo"
-        IMAGE_NAME = "my-nginx-app"
-        TAG = "${BUILD_NUMBER}"
+        IMAGE_NAME = "my-nginx-app"  // Only the image name, without the registry URL
+        TAG = "${BUILD_NUMBER}"  // Unique tag for the image
         SSH_KEY = credentials('Jenkins-ssh-keypair')  // Jenkins credentials for SSH key
         targetHost = ''  // Initialize targetHost variable
     }
