@@ -21,7 +21,7 @@ pipeline {
         stage('Fetch Code') {
             steps {
                 // Fetch the code from GitHub repository
-                git branch: 'main', url: 'https://github.com/ashleypearl-web/jenkins-docker-pipeline.git'
+                git branch: 'main', url: 'https://github.com/ashleypearl-web/Jenkins-Docker-ECR-Terraform-pipeline.git'
             }
         }
 
