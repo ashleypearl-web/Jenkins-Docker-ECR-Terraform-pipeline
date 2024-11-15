@@ -13,7 +13,7 @@ pipeline {
         ashleyRegistry = "https://816069136612.dkr.ecr.us-east-1.amazonaws.com"
         ECR_REPO = "816069136612.dkr.ecr.us-east-1.amazonaws.com/ashleysrepo"
         IMAGE_NAME = "my-nginx-app"
-        TAG = "${BUILD_NUMBER}"  // or any other tag like 'latest'
+        TAG = "${BUILD_NUMBER}"
         SSH_KEY = credentials('Jenkins-ssh-keypair')  // Jenkins credentials for SSH key
         targetHost = ''  // Initialize targetHost variable
     }
@@ -47,11 +47,22 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build and Tag Docker Image') {
             steps {
                 script {
                     // Build the Docker image based on the Dockerfile
-                    docker.build("${IMAGE_NAME}", ".")
+                    def dockerImage = docker.build("${IMAGE_NAME}:${TAG}", ".")
+                    
+                    // Tag the image with "latest"
+                    dockerImage.tag("${IMAGE_NAME}:latest")
+                    
+                    // Push the Docker image to AWS ECR registry
+                    docker.withRegistry(ashleyRegistry, registryCredential) {
+                        // Push with build number tag (e.g., 25)
+                        dockerImage.push("${TAG}")
+                        // Push with the 'latest' tag
+                        dockerImage.push('latest')
+                    }
                 }
             }
         }
@@ -91,25 +102,6 @@ pipeline {
                 // Wait for quality gate to pass before proceeding
                 timeout(time: 1, unit: 'HOURS') {
                     waitForQualityGate abortPipeline: true
-                }
-            }
-        }
-
-        stage('Build and Push Docker Image') {
-            steps {
-                script {
-                    // Build the Docker image from Dockerfile located in the current directory
-                    def dockerImage = docker.build(IMAGE_NAME, ".")
-
-                    // Tag the Docker image with the ECR repository URL and the build number tag
-                    dockerImage.tag("${ECR_REPO}:${TAG}")  // Tag with build number (e.g., 28)
-                    dockerImage.tag("${ECR_REPO}:latest")  // Tag with 'latest'
-
-                    // Push the Docker image to AWS ECR registry
-                    docker.withRegistry(ashleyRegistry, registryCredential) {
-                        dockerImage.push("${TAG}")  // Push with build number tag (e.g., 28)
-                        dockerImage.push('latest')   // Push with 'latest' tag
-                    }
                 }
             }
         }
@@ -164,4 +156,3 @@ pipeline {
         }
     }
 }
-
