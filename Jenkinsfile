@@ -5,8 +5,6 @@ pipeline {
         maven "Maven3.9"  
         jdk "JDK17" 
         terraform 'terraform'  // Ensure Terraform is installed and configured
-    }      
-
     }
 
     environment {
@@ -32,23 +30,21 @@ pipeline {
             steps {
                 script {
                     // Initialize Terraform and apply to provision EC2 instance(s)
-                    dir("${TERRAFORM_DIR}") {
-                        // Initialize Terraform
-                        sh 'terraform init'
-                        
-                        // Apply Terraform to create infrastructure
-                        sh 'terraform apply -auto-approve'
+                    // Since Terraform files are in the root directory, no need to change directories
+                    sh 'terraform init'  // Initialize Terraform
+                    
+                    // Apply Terraform to create infrastructure
+                    sh 'terraform apply -auto-approve'
 
-                        // Capture the output from Terraform (e.g., EC2 instance IP)
-                        def devIp = sh(script: 'terraform output dev_public_ip', returnStdout: true).trim()
-                        echo "Dev Instance Public IP: ${devIp}"
+                    // Capture the output from Terraform (e.g., EC2 instance IP)
+                    def devIp = sh(script: 'terraform output dev_public_ip', returnStdout: true).trim()
+                    echo "Dev Instance Public IP: ${devIp}"
 
-                        // Set the IP based on environment
-                        if (env.BRANCH_NAME == 'dev') {
-                            targetHost = devIp
-                        } else {
-                            echo "Not on dev branch. Skipping targetHost assignment."
-                        }
+                    // Set the IP based on environment
+                    if (env.BRANCH_NAME == 'dev') {
+                        targetHost = devIp
+                    } else {
+                        echo "Not on dev branch. Skipping targetHost assignment."
                     }
                 }
             }
@@ -142,6 +138,11 @@ pipeline {
         stage('Deploy to Environment') {
             steps {
                 script {
+                    // Ensure targetHost is set
+                    if (targetHost == '') {
+                        error "targetHost is not set. Deployment will not proceed."
+                    }
+
                     // Assuming targetHost is set from the previous stage
                     sh """
                     ssh -i ${SSH_KEY} ec2-user@${targetHost} << EOF
