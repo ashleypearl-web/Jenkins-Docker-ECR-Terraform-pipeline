@@ -2,19 +2,19 @@ pipeline {
     agent { label 'jenkins-slave-ubuntu' }
 
     tools {
-        maven "Maven3.9"
-        jdk "JDK17"
-        terraform 'terraform'  // Ensure Terraform is installed and configured
+        maven "Maven3.9"  
+        jdk "JDK17"       
     }
 
     environment {
         registryCredential = 'ecr:us-east-1:awscreds'
-        ashleyRegistry = "816069136612.dkr.ecr.us-east-1.amazonaws.com"
-        ECR_REPO = "ashleysrepo"
-        IMAGE_NAME = "my-nginx-app"  // Only the image name, without the registry URL
-        TAG = "${BUILD_NUMBER}"  // Unique tag for the image
+        imageName = "816069136612.dkr.ecr.us-east-1.amazonaws.com/ashleysrepo"
+        ashleyRegistry = "https://816069136612.dkr.ecr.us-east-1.amazonaws.com"
+        ECR_REPO = "816069136612.dkr.ecr.us-east-1.amazonaws.com/ashleysrepo"
+        IMAGE_NAME = "my-nginx-app"
+        TAG = "${BUILD_NUMBER}"
         SSH_KEY = credentials('Jenkins-ssh-keypair')  // Jenkins credentials for SSH key
-        targetHost = ''  // Initialize targetHost variable
+        TERRAFORM_DIR = 'terraform'  // Directory where Terraform code is located
     }
 
     stages {
@@ -29,18 +29,21 @@ pipeline {
             steps {
                 script {
                     // Initialize Terraform and apply to provision EC2 instance(s)
-                    sh 'terraform init'  // Initialize Terraform
-                    sh 'terraform apply -auto-approve'
+                    dir("${TERRAFORM_DIR}") {
+                        // Initialize Terraform
+                        sh 'terraform init'
+                        
+                        // Apply Terraform to create infrastructure
+                        sh 'terraform apply -auto-approve'
 
-                    // Capture the output from Terraform (e.g., EC2 instance IP)
-                    def devIp = sh(script: 'terraform output dev_public_ip', returnStdout: true).trim()
-                    echo "Dev Instance Public IP: ${devIp}"
+                        // Capture the output from Terraform (e.g., EC2 instance IP)
+                        def devIp = sh(script: 'terraform output dev_public_ip', returnStdout: true).trim()
+                        echo "Dev Instance Public IP: ${devIp}"
 
-                    // Set the IP based on environment
-                    if (env.BRANCH_NAME == 'dev') {
-                        targetHost = devIp
-                    } else {
-                        echo "Not on dev branch. Skipping targetHost assignment."
+                        // Set the IP based on environment
+                        if (env.BRANCH_NAME == 'dev') {
+                            targetHost = devIp
+                        } // <-- This closing brace was missing
                     }
                 }
             }
@@ -49,30 +52,8 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Build the Docker image
-                    def dockerImage = docker.build("${ashleyRegistry}/${ECR_REPO}:${TAG}", ".")
-                    echo "Built Docker image: ${ashleyRegistry}/${ECR_REPO}:${TAG}"
-                }
-            }
-        }
-
-        stage('Tag and Push Docker Image') {
-            steps {
-                script {
-                    // Tag the image as 'latest'
-                    dockerImage.tag("${ashleyRegistry}/${ECR_REPO}:latest")
-                    echo "Tagged Docker image as: ${ashleyRegistry}/${ECR_REPO}:latest"
-
-                    // Push the image to AWS ECR registry
-                    docker.withRegistry(ashleyRegistry, registryCredential) {
-                        // Push with build number tag (e.g., 35)
-                        dockerImage.push("${TAG}")
-                        echo "Pushed Docker image: ${ashleyRegistry}/${ECR_REPO}:${TAG}"
-
-                        // Push with the 'latest' tag
-                        dockerImage.push('latest')
-                        echo "Pushed Docker image: ${ashleyRegistry}/${ECR_REPO}:latest"
-                    }
+                    // Build the Docker image based on the Dockerfile
+                    docker.build(IMAGE_NAME, ".")
                 }
             }
         }
@@ -116,6 +97,21 @@ pipeline {
             }
         }
 
+        stage('Build and Push Docker Image') {
+            steps {
+                script {
+                    // Build the Docker image from Dockerfile located in the current directory
+                    def dockerImage = docker.build(IMAGE_NAME, ".")
+
+                    // Push the Docker image to AWS ECR registry
+                    docker.withRegistry(ashleyRegistry, registryCredential) {
+                        dockerImage.push(TAG)  // Push with build number tag
+                        dockerImage.push('latest') // Push with 'latest' tag
+                    }
+                }
+            }
+        }
+
         stage('Success - Send Email Notification') {
             when {
                 branch 'main'
@@ -133,7 +129,7 @@ pipeline {
         stage('Container Security Scan - Trivy') {
             steps {
                 script {
-                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ECR_REPO}:${TAG}"
+                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ECR_REPO}:${TAG}'
                 }
             }
         }
@@ -141,22 +137,15 @@ pipeline {
         stage('Deploy to Environment') {
             steps {
                 script {
-                    // Ensure targetHost is set
-                    if (targetHost == '') {
-                        error "targetHost is not set. Deployment will not proceed."
-                    }
-
                     // Assuming targetHost is set from the previous stage
-                    sshagent([SSH_KEY]) {
-                        sh """
-                        ssh -i ${SSH_KEY} ec2-user@${targetHost} << EOF
-                        docker pull ${ECR_REPO}:${TAG}
-                        docker stop ${IMAGE_NAME} || true
-                        docker rm ${IMAGE_NAME} || true
-                        docker run -d --name ${IMAGE_NAME} -p 80:80 ${ECR_REPO}:${TAG}
-                        EOF
-                        """
-                    }
+                    sh """
+                    ssh -i ${SSH_KEY} ec2-user@${targetHost} << EOF
+                    docker pull ${ECR_REPO}:${TAG}
+                    docker stop ${IMAGE_NAME} || true
+                    docker rm ${IMAGE_NAME} || true
+                    docker run -d --name ${IMAGE_NAME} -p 80:80 ${ECR_REPO}:${TAG}
+                    EOF
+                    """
                 }
             }
         }
@@ -166,5 +155,6 @@ pipeline {
         always {
             cleanWs()  // Clean up workspace after the build
         }
-    }
+    }  
 }
+  
