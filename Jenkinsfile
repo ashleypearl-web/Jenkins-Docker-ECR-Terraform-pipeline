@@ -10,7 +10,7 @@ pipeline {
     environment {
         registryCredential = 'ecr:us-east-1:awscreds'
         ashleyRegistry = "https://816069136612.dkr.ecr.us-east-1.amazonaws.com"
-        ECR_REPO = "816069136612.dkr.ecr.us-east-1.amazonaws.com/ashleysrepo"
+        ECR_REPO = "ashleysrepo"
         IMAGE_NAME = "my-nginx-app"  // Only the image name, without the registry URL
         TAG = "${BUILD_NUMBER}"  // Unique tag for the image
         SSH_KEY = credentials('Jenkins-ssh-keypair')  // Jenkins credentials for SSH key
@@ -46,26 +46,36 @@ pipeline {
             }
         }
 
-        stage('Build and Tag Docker Image') {
+        stage('Build Docker Image') {
             steps {
                 script {
-                    // Build the Docker image based on the Dockerfile
-                    def dockerImage = docker.build("${IMAGE_NAME}:${TAG}", ".")
-                    
-                    // Tag the image with "latest" in the correct ECR repository
-                    dockerImage.tag("${IMAGE_NAME}:latest")      // Tag the image with "latest"
-
-                    // Push the Docker image to AWS ECR registry
-                    docker.withRegistry(ashleyRegistry, registryCredential) {
-                        // Push with build number tag (e.g., 31)
-                        dockerImage.push("${TAG}")
-                        // Push with the 'latest' tag
-                        dockerImage.push('latest')
-                    }
+                    // Build the Docker image
+                    def dockerImage = docker.build("${ashleyRegistry}/${ECR_REPO}:${TAG}", ".")
+                    echo "Built Docker image: ${ashleyRegistry}/${ECR_REPO}:${TAG}"
                 }
             }
         }
 
+        stage('Tag and Push Docker Image') {
+            steps {
+                script {
+                    // Tag the image as 'latest'
+                    dockerImage.tag("${ashleyRegistry}/${ECR_REPO}:latest")
+                    echo "Tagged Docker image as: ${ashleyRegistry}/${ECR_REPO}:latest"
+
+                    // Push the image to AWS ECR registry
+                    docker.withRegistry(ashleyRegistry, registryCredential) {
+                        // Push with build number tag (e.g., 35)
+                        dockerImage.push("${TAG}")
+                        echo "Pushed Docker image: ${ashleyRegistry}/${ECR_REPO}:${TAG}"
+
+                        // Push with the 'latest' tag
+                        dockerImage.push('latest')
+                        echo "Pushed Docker image: ${ashleyRegistry}/${ECR_REPO}:latest"
+                    }
+                }
+            }
+        }
 
         stage('Unit Test') {
             steps {
@@ -123,7 +133,7 @@ pipeline {
         stage('Container Security Scan - Trivy') {
             steps {
                 script {
-                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ECR_REPO}:${TAG}'
+                    sh "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ECR_REPO}:${TAG}"
                 }
             }
         }
@@ -137,14 +147,16 @@ pipeline {
                     }
 
                     // Assuming targetHost is set from the previous stage
-                    sh """
-                    ssh -i ${SSH_KEY} ec2-user@${targetHost} << EOF
-                    docker pull ${ECR_REPO}:${TAG}
-                    docker stop ${IMAGE_NAME} || true
-                    docker rm ${IMAGE_NAME} || true
-                    docker run -d --name ${IMAGE_NAME} -p 80:80 ${ECR_REPO}:${TAG}
-                    EOF
-                    """
+                    sshagent([SSH_KEY]) {
+                        sh """
+                        ssh -i ${SSH_KEY} ec2-user@${targetHost} << EOF
+                        docker pull ${ECR_REPO}:${TAG}
+                        docker stop ${IMAGE_NAME} || true
+                        docker rm ${IMAGE_NAME} || true
+                        docker run -d --name ${IMAGE_NAME} -p 80:80 ${ECR_REPO}:${TAG}
+                        EOF
+                        """
+                    }
                 }
             }
         }
