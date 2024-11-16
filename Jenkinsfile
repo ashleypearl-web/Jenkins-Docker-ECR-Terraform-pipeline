@@ -47,14 +47,15 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Build the Docker image with correct format
-                    def customImage = docker.build("${ashleyRegistry.replace('https://', '')}/${ECR_REPO}:${env.BUILD_ID}")
+                    // Build the Docker image with correct format (no https:// prefix needed here)
+                    def customImage = docker.build("${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}")
                     echo "Built Docker image: ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}"
                     // Save the custom image reference for later stages
                     env.customImage = customImage
                 }
             }
         }
+
 
         stage('Unit Test') {
             steps {
