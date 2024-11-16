@@ -47,9 +47,11 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Build the Docker image based on the Dockerfile
+                    // Build the Docker image based on the Dockerfile and tag it with the build ID
                     def customImage = docker.build("${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}")
                     echo "Built Docker image: ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}"
+                    // Save the custom image reference for later stages
+                    env.customImage = customImage
                 }
             }
         }
@@ -93,23 +95,17 @@ pipeline {
             }
         }
 
-        stage('Tag and Push Docker Image') {
+        stage('Upload App Image') {
             steps {
                 script {
-                    // Checkout the source code
-                    checkout scm
-
-                    // Build the Docker image with a custom tag using the Jenkins build ID
-                    def customImage = docker.build("${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}")
-                    echo "Built Docker image: ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}"
-
-                    // Push the image with the build-specific tag
+                    // Push the image to ECR with build number and latest tags
                     docker.withRegistry(ashleyRegistry, registryCredential) {
-                        customImage.push()  // Push the image with the build ID tag
-                        echo "Pushed Docker image: ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}"
+                        // Push with the build number tag
+                        env.customImage.push("${BUILD_NUMBER}")
+                        echo "Pushed Docker image: ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_NUMBER}"
 
-                        // Push the image with the 'latest' tag
-                        customImage.push('latest')
+                        // Push with the 'latest' tag
+                        env.customImage.push('latest')
                         echo "Pushed Docker image: ${ashleyRegistry}/${ECR_REPO}:latest"
                     }
                 }
@@ -164,3 +160,4 @@ pipeline {
         }
     }
 }
+
