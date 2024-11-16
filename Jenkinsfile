@@ -4,7 +4,7 @@ pipeline {
     tools {
         maven "Maven3.9"  
         jdk "JDK17"   
-        terraform "terraform"  // Ensure Terraform is installed on the Jenkins agent
+        terraform "terraform"    
     }
 
     environment {
@@ -29,7 +29,6 @@ pipeline {
             steps {
                 script {
                     // Initialize Terraform and apply to provision EC2 instance(s)
-                    // Terraform is located in the root directory, so no need for a subdirectory reference
                     sh 'terraform init'  // Initialize Terraform
                     sh 'terraform apply -auto-approve'  // Apply the Terraform configuration
 
@@ -49,8 +48,8 @@ pipeline {
             steps {
                 script {
                     // Build the Docker image based on the Dockerfile
-                    def dockerImage = docker.build("${ashleyRegistry}/${ECR_REPO}:${TAG}", ".")
-                    echo "Built Docker image: ${ashleyRegistry}/${ECR_REPO}:${TAG}"
+                    def customImage = docker.build("${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}")
+                    echo "Built Docker image: ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}"
                 }
             }
         }
@@ -97,18 +96,20 @@ pipeline {
         stage('Tag and Push Docker Image') {
             steps {
                 script {
-                    // Tag the image as 'latest'
-                    dockerImage.tag("${ashleyRegistry}/${ECR_REPO}:latest")
-                    echo "Tagged Docker image as: ${ashleyRegistry}/${ECR_REPO}:latest"
+                    // Checkout the source code
+                    checkout scm
 
-                    // Push the image to AWS ECR registry
+                    // Build the Docker image with a custom tag using the Jenkins build ID
+                    def customImage = docker.build("${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}")
+                    echo "Built Docker image: ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}"
+
+                    // Push the image with the build-specific tag
                     docker.withRegistry(ashleyRegistry, registryCredential) {
-                        // Push with build number tag (e.g., 40)
-                        dockerImage.push("${TAG}")
-                        echo "Pushed Docker image: ${ashleyRegistry}/${ECR_REPO}:${TAG}"
+                        customImage.push()  // Push the image with the build ID tag
+                        echo "Pushed Docker image: ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}"
 
-                        // Push with the 'latest' tag
-                        dockerImage.push('latest')
+                        // Push the image with the 'latest' tag
+                        customImage.push('latest')
                         echo "Pushed Docker image: ${ashleyRegistry}/${ECR_REPO}:latest"
                     }
                 }
@@ -132,7 +133,7 @@ pipeline {
         stage('Container Security Scan - Trivy') {
             steps {
                 script {
-                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ashleyRegistry}/${ECR_REPO}:${TAG}'
+                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}'
                 }
             }
         }
@@ -146,10 +147,10 @@ pipeline {
                     }
                     sh """
                     ssh -i ${SSH_KEY} ec2-user@${targetHost} << EOF
-                    docker pull ${ashleyRegistry}/${ECR_REPO}:${TAG}
+                    docker pull ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}
                     docker stop ${IMAGE_NAME} || true
                     docker rm ${IMAGE_NAME} || true
-                    docker run -d --name ${IMAGE_NAME} -p 80:80 ${ashleyRegistry}/${ECR_REPO}:${TAG}
+                    docker run -d --name ${IMAGE_NAME} -p 80:80 ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}
                     EOF
                     """
                 }
@@ -161,5 +162,5 @@ pipeline {
         always {
             cleanWs()  // Clean up workspace after the build
         }
-    }  
+    }
 }
