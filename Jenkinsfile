@@ -9,7 +9,7 @@ pipeline {
 
     environment {
         registryCredential = 'ecr:us-east-1:awscreds'  // Jenkins credentials for AWS ECR
-        ashleyRegistry = "816069136612.dkr.ecr.us-east-1.amazonaws.com"  // ECR Registry URL
+        ashleyRegistry = "https://816069136612.dkr.ecr.us-east-1.amazonaws.com"  // ECR Registry URL
         ECR_REPO = "ashleysrepo"  // Name of the repository within ECR
         IMAGE_NAME = "my-nginx-app"  // Local Docker image name (without registry URL)
         TAG = "${BUILD_NUMBER}"  // Docker tag (usually the Jenkins build number)
