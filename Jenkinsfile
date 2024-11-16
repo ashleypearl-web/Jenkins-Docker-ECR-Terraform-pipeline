@@ -32,15 +32,23 @@ pipeline {
 
                     // Capture the output from Terraform (e.g., EC2 instance IP)
                     def devIp = sh(script: 'terraform output dev_public_ip', returnStdout: true).trim()
-                    echo "Dev Instance Public IP: ${devIp}"
+                    def mainIp = sh(script: 'terraform output main_public_ip', returnStdout: true).trim()
 
-                    // Set the IP based on environment
+                    echo "Dev Instance Public IP: ${devIp}"
+                    echo "Main Instance Public IP: ${mainIp}"
+
+                    // Set the IP based on the branch
                     if (env.BRANCH_NAME == 'dev') {
-                        env.TARGET_HOST = devIp  // Correctly set the environment variable in Jenkins
+                        env.TARGET_HOST = devIp
+                    } else if (env.BRANCH_NAME == 'main') {
+                        env.TARGET_HOST = mainIp
                     }
+
+                    echo "TARGET_HOST is set to: ${env.TARGET_HOST}"
                 }
             }
         }
+
 
         stage('Build') {
             steps {
