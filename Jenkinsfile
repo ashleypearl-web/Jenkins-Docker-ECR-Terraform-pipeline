@@ -130,8 +130,8 @@ pipeline {
                 emailext(
                     subject: "Jenkins Job - Docker Image Pushed to ECR Successfully",
                     body: "Hello,\n\nThe Docker image '${env.IMAGE_NAME}:${env.TAG}' has been successfully pushed to ECR.\n\nBest regards,\nJenkins",
-                    recipientProviders: [[$class: 'DevelopersRecipientProvider']],
-                    to: "m.ehtasham.azhar@gmail.com, tamfuhashley@gmail.com"
+                    to: "m.ehtasham.azhar@gmail.com,tamfuhashley@gmail.com",
+                    recipientProviders: [[$class: 'DevelopersRecipientProvider']]
                 )
             }
         }
@@ -140,8 +140,7 @@ pipeline {
             steps {
                 script {
                     sh '''
-                       #!/bin/bash
-                       docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
+                        bash -c "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}"
                     '''
                 }
             }
