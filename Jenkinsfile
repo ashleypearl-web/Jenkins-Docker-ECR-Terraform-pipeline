@@ -13,7 +13,6 @@ pipeline {
         IMAGE_NAME = "816069136612.dkr.ecr.us-east-1.amazonaws.com/ashleysrepo"  // Docker image name (without the full registry URL)
         TAG = "${BUILD_NUMBER}"  // Docker tag (usually the Jenkins build number)
         SSH_KEY = credentials('Jenkins-ssh-keypair')  // Jenkins credentials for SSH key
-
     }
 
     stages {
@@ -42,7 +41,6 @@ pipeline {
                 }
             }
         }
-
 
         stage('Build') {
             steps {
@@ -149,7 +147,6 @@ pipeline {
             }
         }
 
-
         stage('Deploy to Environment') {
             steps {
                 script {
@@ -157,7 +154,7 @@ pipeline {
                     if (!env.TARGET_HOST) {
                         error "TARGET_HOST is not set. Deployment will not proceed."
                     }
-                    
+
                     // Perform deployment to the EC2 instance using SSH
                     sh """
                     ssh -i ${SSH_KEY} ec2-user@${env.TARGET_HOST} << EOF
@@ -169,13 +166,12 @@ pipeline {
                     """
                 }
             }
-        }
 
-
-    post {
-            always {
-                cleanWs()  // Clean up workspace after the build
+            post {
+                always {
+                    cleanWs()  // Clean up workspace after the build
+                }
             }
         }
     }
-}    
+}
