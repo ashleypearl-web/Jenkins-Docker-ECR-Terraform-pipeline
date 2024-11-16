@@ -4,7 +4,7 @@ pipeline {
     tools {
         maven "Maven3.9"  
         jdk "JDK17"   
-        terraform "terraform"    
+        terraform "terraform"  // Ensure Terraform is installed on the Jenkins agent
     }
 
     environment {
