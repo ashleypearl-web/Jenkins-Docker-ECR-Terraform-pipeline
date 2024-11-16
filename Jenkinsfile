@@ -10,8 +10,7 @@ pipeline {
     environment {
         registryCredential = 'ecr:us-east-1:awscreds'  // Jenkins credentials for AWS ECR
         ashleyRegistry = "https://816069136612.dkr.ecr.us-east-1.amazonaws.com"  // ECR Registry URL with https://
-        ECR_REPO = "ashleysrepo"  // Name of the repository within ECR
-        IMAGE_NAME = "my-nginx-app"  // Local Docker image name (without registry URL)
+        IMAGE_NAME = "816069136612.dkr.ecr.us-east-1.amazonaws.com/ashleysrepo"  // Docker image name (without the full registry URL)
         TAG = "${BUILD_NUMBER}"  // Docker tag (usually the Jenkins build number)
         SSH_KEY = credentials('Jenkins-ssh-keypair')  // Jenkins credentials for SSH key
         targetHost = ''  // Declare targetHost here to avoid issues
@@ -44,18 +43,18 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build') {
             steps {
-                script {
-                    // Build the Docker image with correct format (no https:// prefix needed here)
-                    def customImage = docker.build("${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}")
-                    echo "Built Docker image: ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}"
-                    // Save the custom image reference for later stages
-                    env.customImage = customImage
+                // Run Maven install to build the project (skip tests)
+                sh 'mvn install -DskipTests'
+            }
+            post {
+                success {
+                    echo 'Now Archiving the build artifacts...'
+                    archiveArtifacts artifacts: '**/target/*.war'
                 }
             }
         }
-
 
         stage('Unit Test') {
             steps {
@@ -96,18 +95,28 @@ pipeline {
             }
         }
 
+        stage('Build App Image') {
+            steps {
+                script {
+                    // Build the Docker image with the full registry URL and the image name, including the tag
+                    dockerImage = docker.build( IMAGE_NAME + ":$BUILD_NUMBER", ".")
+                    echo "Built Docker image: ${ashleyRegistry}/${IMAGE_NAME}:${BUILD_NUMBER}"
+                }
+            }
+        }
+
         stage('Upload App Image') {
             steps {
                 script {
-                    // Push the image to ECR with build number and latest tags
+                    // Push the Docker image to ECR with the correct tags (build number and latest)
                     docker.withRegistry(ashleyRegistry, registryCredential) {
                         // Push with the build number tag
-                        env.customImage.push("${BUILD_NUMBER}")
-                        echo "Pushed Docker image: ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_NUMBER}"
+                        dockerImage.push("${BUILD_NUMBER}")
+                        echo "Pushed Docker image: ${ashleyRegistry}/${IMAGE_NAME}:${BUILD_NUMBER}"
 
                         // Push with the 'latest' tag
-                        env.customImage.push('latest')
-                        echo "Pushed Docker image: ${ashleyRegistry}/${ECR_REPO}:latest"
+                        dockerImage.push('latest')
+                        echo "Pushed Docker image: ${ashleyRegistry}/${IMAGE_NAME}:latest"
                     }
                 }
             }
@@ -130,7 +139,7 @@ pipeline {
         stage('Container Security Scan - Trivy') {
             steps {
                 script {
-                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}'
+                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}'
                 }
             }
         }
@@ -144,10 +153,10 @@ pipeline {
                     }
                     sh """
                     ssh -i ${SSH_KEY} ec2-user@${targetHost} << EOF
-                    docker pull ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}
+                    docker pull ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
                     docker stop ${IMAGE_NAME} || true
                     docker rm ${IMAGE_NAME} || true
-                    docker run -d --name ${IMAGE_NAME} -p 80:80 ${ashleyRegistry}/${ECR_REPO}:${env.BUILD_ID}
+                    docker run -d --name ${IMAGE_NAME} -p 80:80 ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
                     EOF
                     """
                 }
