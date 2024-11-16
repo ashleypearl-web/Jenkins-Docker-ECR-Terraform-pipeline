@@ -144,6 +144,8 @@ pipeline {
                     echo "ashleyRegistry=${ashleyRegistry}"
                     echo "IMAGE_NAME=${IMAGE_NAME}"
                     echo "BUILD_NUMBER=${BUILD_NUMBER}"
+                    
+                    # Properly concatenate the registry URL and image name
                     docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ashleyRegistry}/${IMAGE_NAME}:${BUILD_NUMBER}
                     """
                 }
