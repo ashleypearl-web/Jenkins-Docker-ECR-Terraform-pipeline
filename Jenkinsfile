@@ -139,12 +139,17 @@ pipeline {
         stage('Container Security Scan - Trivy') {
             steps {
                 script {
-                    sh '''
-                        bash -c "docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}"
-                    '''
+                    sh """
+                    #!/bin/bash
+                    echo "ashleyRegistry=${ashleyRegistry}"
+                    echo "IMAGE_NAME=${IMAGE_NAME}"
+                    echo "BUILD_NUMBER=${BUILD_NUMBER}"
+                    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${ashleyRegistry}/${IMAGE_NAME}:${BUILD_NUMBER}
+                    """
                 }
             }
         }
+
 
         stage('Deploy to Environment') {
             steps {
