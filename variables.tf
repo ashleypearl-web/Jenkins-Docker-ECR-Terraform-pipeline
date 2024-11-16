@@ -13,3 +13,7 @@ variable "instance_type" {
   
 }
 
+variable "vpc_id" {
+    default = "vpc-08e735523f5427793"
+  
+}

@@ -163,15 +163,17 @@ pipeline {
                         error "TARGET_HOST is not set. Deployment will not proceed."
                     }
 
-                    // Perform deployment to the EC2 instance using SSH
-                    sh """
-                    ssh -i ${SSH_KEY} ec2-user@${env.TARGET_HOST} << EOF
-                    docker pull ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
-                    docker stop ${IMAGE_NAME} || true
-                    docker rm ${IMAGE_NAME} || true
-                    docker run -d --name ${IMAGE_NAME} -p 80:80 ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
-                    EOF
-                    """
+                    withCredentials([sshUserPrivateKey(credentialsId: 'Jenkins-ssh-keypair', keyFileVariable: 'SSH_KEY')]) {
+                        sh """
+                            ssh -i ${SSH_KEY} ec2-user@${env.TARGET_HOST} << EOF
+                            docker pull ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
+                            docker stop ${IMAGE_NAME} || true
+                            docker rm ${IMAGE_NAME} || true
+                            docker run -d --name ${IMAGE_NAME} -p 80:80 ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
+                            EOF
+                        """
+                    }
+
                 }
             }
 
