@@ -13,7 +13,7 @@ pipeline {
         IMAGE_NAME = "816069136612.dkr.ecr.us-east-1.amazonaws.com/ashleysrepo"  // Docker image name (without the full registry URL)
         TAG = "${BUILD_NUMBER}"  // Docker tag (usually the Jenkins build number)
         SSH_KEY = credentials('Jenkins-ssh-keypair')  // Jenkins credentials for SSH key
-        
+
     }
 
     stages {
@@ -172,9 +172,10 @@ pipeline {
         }
 
 
-    post {
-        always {
-            cleanWs()  // Clean up workspace after the build
+        post {
+            always {
+                cleanWs()  // Clean up workspace after the build
+            }
         }
     }
 }
