@@ -161,7 +161,7 @@ pipeline {
                     sh """
                         # SSH into EC2 instance using the generated private key
                         chmod 600 ${env.PRIVATE_KEY_PATH}
-                        ssh -i ${env.PRIVATE_KEY_PATH} ubuntu@${env.TARGET_HOST} << EOF
+                        ssh -i ${env.PRIVATE_KEY_PATH} ec2-user@${env.TARGET_HOST} << EOF
                         docker pull ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
                         docker stop ${IMAGE_NAME} || true
                         docker rm ${IMAGE_NAME} || true
@@ -179,3 +179,4 @@ pipeline {
         }
     }
 }
+
