@@ -195,7 +195,7 @@ pipeline {
 
     post {
         always {
-            cleanWs(deleteDirs: false, patterns: '**/*.pem')  // Prevent the private key from being deleted
+            cleanWs(deleteDirs: false, patterns: ['**/*.pem'])  // Exclude the private key files
         }
     }
 }
