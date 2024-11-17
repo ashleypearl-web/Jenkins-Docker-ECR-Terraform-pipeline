@@ -10,11 +10,6 @@ resource "aws_key_pair" "cicd_keypair" {
   public_key = tls_private_key.cicd_key.public_key_openssh
 }
 
-# Output the private key path (use this in Jenkins to copy the private key)
-output "private_key_path" {
-  value = "${path.module}/cicd-keypair.pem"
-}
-
 # Security Group to allow SSH, HTTP, and HTTPS traffic
 resource "aws_security_group" "web_sg" {
   name        = "web-sg"
