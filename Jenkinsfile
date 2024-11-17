@@ -37,11 +37,17 @@ pipeline {
                     echo "Dev Instance Public IP: ${devIp}"
                     echo "Private Key Path: ${privateKeyPath}"
 
+                    // Ensure the private key file is available in the workspace
+                    sh """
+                        cp ${privateKeyPath} ./cicd-keypair.pem
+                        ls -al ./cicd-keypair.pem  # Check if the file was copied
+                    """
+
                     // Set the TARGET_HOST for both dev and main branch
                     env.TARGET_HOST = devIp
 
                     // Set the private key path as environment variable for later stages
-                    env.PRIVATE_KEY_PATH = privateKeyPath
+                    env.PRIVATE_KEY_PATH = "./cicd-keypair.pem"
                 }
             }
         }
@@ -134,8 +140,7 @@ pipeline {
                     subject: "Jenkins Job - Docker Image Pushed to ECR Successfully",
                     body: "Hello,\n\nThe Docker image '${env.IMAGE_NAME}:${env.TAG}' has been successfully pushed to ECR.\n\nBest regards,\nJenkins",
                     to: "m.ehtasham.azhar@gmail.com,tamfuhashley@gmail.com",
-                    recipientProviders: [[$class: 'DevelopersRecipientProvider']]
-                )
+                    recipientProviders: [[$class: 'DevelopersRecipientProvider']])
             }
         }
 
@@ -154,20 +159,18 @@ pipeline {
         stage('Deploy to Environment') {
             steps {
                 script {
-                    // Ensure PRIVATE_KEY_PATH is set and accessible
-                    if (!env.PRIVATE_KEY_PATH) {
-                        error "PRIVATE_KEY_PATH is not set. Deployment will not proceed."
+                    // Ensure the private key exists in the workspace and has correct permissions
+                    if (!env.PRIVATE_KEY_PATH || !fileExists(env.PRIVATE_KEY_PATH)) {
+                        error "Private key file does not exist at ${env.PRIVATE_KEY_PATH}. Deployment will not proceed."
                     }
 
                     // Log and check the private key path
                     echo "Private Key Path: ${env.PRIVATE_KEY_PATH}"
 
-                    // Ensure that the private key exists in the workspace
+                    // Ensure that the private key has the correct permissions
                     sh """
-                        echo "Workspace directory: \$(pwd)"
-                        echo "Checking if private key exists at path ${env.PRIVATE_KEY_PATH}"
-                        ls -al ${env.PRIVATE_KEY_PATH}  # Debugging line to confirm key file location
-                        chmod 600 ${env.PRIVATE_KEY_PATH}  # Ensure correct permissions
+                        chmod 600 ${env.PRIVATE_KEY_PATH}
+                        ls -al ${env.PRIVATE_KEY_PATH}  # Verify permissions and file existence
                     """
 
                     // SSH into EC2 instance using the private key
