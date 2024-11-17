@@ -37,6 +37,10 @@ pipeline {
                     echo "Dev Instance Public IP: ${devIp}"
                     echo "Private Key Path: ${privateKeyPath}"
 
+                    // Check if the private key exists in the workspace
+                    sh "ls -al ./"
+                    sh "ls -al ${privateKeyPath}"  // Debug: Check if the private key is in the expected location
+
                     // Set the TARGET_HOST for both dev and main branch
                     env.TARGET_HOST = devIp
 
