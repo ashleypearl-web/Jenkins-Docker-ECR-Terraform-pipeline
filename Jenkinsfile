@@ -164,7 +164,7 @@ pipeline {
 
                     // Ensure that the private key exists in the workspace
                     sh """
-                        echo "Workspace directory: $(pwd)"
+                        echo "Workspace directory: \$(pwd)"
                         echo "Checking if private key exists at path ${env.PRIVATE_KEY_PATH}"
                         ls -al ${env.PRIVATE_KEY_PATH}  # Debugging line to confirm key file location
                         chmod 600 ${env.PRIVATE_KEY_PATH}  # Ensure correct permissions
