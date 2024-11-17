@@ -171,13 +171,21 @@ pipeline {
                         ls -al ${env.PRIVATE_KEY_PATH}  # Verify permissions and file existence
                     """
 
-                    // SSH into EC2 instance using the private key
+                    // SSH into EC2 instance and run the deployment commands
                     sh """
                         ssh -i ${env.PRIVATE_KEY_PATH} ubuntu@${env.TARGET_HOST} << EOF
-                        docker pull ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
-                        docker stop ${IMAGE_NAME} || true
-                        docker rm ${IMAGE_NAME} || true
-                        docker run -d --name ${IMAGE_NAME} -p 80:80 ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
+                            # Authenticate Docker with AWS ECR
+                            aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 816069136612.dkr.ecr.us-east-1.amazonaws.com
+                            
+                            # Pull the image from ECR
+                            docker pull ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
+
+                            # Stop and remove any old containers with the same name
+                            docker stop ${IMAGE_NAME} || true
+                            docker rm ${IMAGE_NAME} || true
+
+                            # Run the new container
+                            docker run -d --name ${IMAGE_NAME} -p 80:80 ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
                         EOF
                     """
                 }
