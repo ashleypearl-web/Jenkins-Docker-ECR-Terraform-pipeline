@@ -37,7 +37,8 @@ pipeline {
                     echo "Dev Instance Public IP: ${devIp}"
                     echo "Private Key Path: ${privateKeyPath}"
 
-                    // Ensure the private key file is available in the workspace
+                    // Ensure that the private key file is available in the workspace
+                    // Copy the private key from the Terraform output path to Jenkins workspace
                     sh """
                         cp ${privateKeyPath} ./cicd-keypair.pem
                         ls -al ./cicd-keypair.pem  # Check if the file was copied
