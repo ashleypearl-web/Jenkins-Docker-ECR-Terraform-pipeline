@@ -158,22 +158,22 @@ pipeline {
         stage('Deploy to Environment') {
             steps {
                 script {
-                    // Check if TARGET_HOST is set (to avoid errors)
+                    // Check if TARGET_HOST is set
                     if (!env.TARGET_HOST) {
                         error "TARGET_HOST is not set. Deployment will not proceed."
                     }
 
-                    withCredentials([sshUserPrivateKey(credentialsId: 'Jenkins-ssh-keypair', keyFileVariable: 'SSH_KEY')]) {
+                    // Use withCredentials to mask the SSH key
+                    withCredentials([file(credentialsId: 'Jenkins-ssh-keypair', variable: 'SSH_KEY_PATH')]) {
                         sh """
-                            ssh -i ${SSH_KEY} ec2-user@${env.TARGET_HOST} << EOF
-                            docker pull ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
-                            docker stop ${IMAGE_NAME} || true
-                            docker rm ${IMAGE_NAME} || true
-                            docker run -d --name ${IMAGE_NAME} -p 80:80 ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
-                            EOF
+                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_PATH} ec2-user@${env.TARGET_HOST} << EOF
+                        docker pull ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
+                        docker stop ${IMAGE_NAME} || true
+                        docker rm ${IMAGE_NAME} || true
+                        docker run -d --name ${IMAGE_NAME} -p 80:80 ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
+                        EOF
                         """
                     }
-
                 }
             }
 
