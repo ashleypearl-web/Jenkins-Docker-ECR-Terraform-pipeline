@@ -1,6 +1,12 @@
 pipeline {
     agent { label 'jenkins-slave-ubuntu' }
 
+    tools {
+        maven "Maven3.9"  
+        jdk "JDK17"   
+        terraform "terraform"    
+    }
+
     environment {
         registryCredential = 'ecr:us-east-1:awscreds'  // Jenkins credentials for AWS ECR
         ashleyRegistry = "https://816069136612.dkr.ecr.us-east-1.amazonaws.com"  // ECR Registry URL with https://
@@ -36,6 +42,111 @@ pipeline {
 
                     // Set the private key path as environment variable for later stages
                     env.PRIVATE_KEY_PATH = privateKeyPath
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                // Run Maven install to build the project (skip tests)
+                sh 'mvn install -DskipTests'
+            }
+            post {
+                success {
+                    echo 'Now Archiving the build artifacts...'
+                    archiveArtifacts artifacts: '**/target/*.war'
+                }
+            }
+        }
+
+        stage('Unit Test') {
+            steps {
+                // Run unit tests using Maven
+                sh 'mvn test'
+            }
+        }
+
+        stage('Checkstyle Analysis') {
+            steps {
+                // Run Checkstyle analysis using Maven
+                sh 'mvn checkstyle:checkstyle'
+            }
+        }
+
+        stage("SonarQube Code Analysis") {
+            environment {
+                scannerHome = tool 'sonar6.2'  // Specify the SonarQube scanner version
+            }
+            steps {
+                // Run SonarQube analysis
+                withSonarQubeEnv('sonarserver') {
+                    sh '''${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=ashleyprofile \
+                       -Dsonar.projectName=ashley-repo \
+                       -Dsonar.projectVersion=1.0 \
+                       -Dsonar.sources=. \
+                       -Dsonar.inclusions=**/*.html,**/*.css,**/*.js'''
+                }
+            }
+        }
+
+        stage("Quality Gate") {
+            steps {
+                // Wait for quality gate to pass before proceeding
+                timeout(time: 1, unit: 'HOURS') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Build App Image') {
+            steps {
+                script {
+                    // Build the Docker image with the full registry URL and the image name, including the tag
+                    dockerImage = docker.build( IMAGE_NAME + ":$BUILD_NUMBER", ".")
+                    echo "Built Docker image: ${ashleyRegistry}/${IMAGE_NAME}:${BUILD_NUMBER}"
+                }
+            }
+        }
+
+        stage('Upload App Image') {
+            steps {
+                script {
+                    // Push the Docker image to ECR with the correct tags (build number and latest)
+                    docker.withRegistry(ashleyRegistry, registryCredential) {
+                        // Push with the build number tag
+                        dockerImage.push("${BUILD_NUMBER}")
+                        echo "Pushed Docker image: ${ashleyRegistry}/${IMAGE_NAME}:${BUILD_NUMBER}"
+
+                        // Push with the 'latest' tag
+                        dockerImage.push('latest')
+                        echo "Pushed Docker image: ${ashleyRegistry}/${IMAGE_NAME}:latest"
+                    }
+                }
+            }
+        }
+
+        stage('Success - Send Email Notification') {
+            when {
+                branch 'main'
+            }
+            steps {
+                emailext(
+                    subject: "Jenkins Job - Docker Image Pushed to ECR Successfully",
+                    body: "Hello,\n\nThe Docker image '${env.IMAGE_NAME}:${env.TAG}' has been successfully pushed to ECR.\n\nBest regards,\nJenkins",
+                    to: "m.ehtasham.azhar@gmail.com,tamfuhashley@gmail.com",
+                    recipientProviders: [[$class: 'DevelopersRecipientProvider']]
+                )
+            }
+        }
+
+        stage('Container Security Scan - Trivy') {
+            steps {
+                script {
+                    sh """
+                    #!/bin/bash
+                    # Run Trivy security scan
+                    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${IMAGE_NAME}:${BUILD_NUMBER}
+                    """
                 }
             }
         }
