@@ -154,15 +154,18 @@ pipeline {
         stage('Deploy to Environment') {
             steps {
                 script {
-                    // Ensure TARGET_HOST and PRIVATE_KEY_PATH are set
-                    if (!env.TARGET_HOST || !env.PRIVATE_KEY_PATH) {
-                        error "TARGET_HOST or PRIVATE_KEY_PATH is not set. Deployment will not proceed."
+                    // Ensure PRIVATE_KEY_PATH is set and accessible
+                    if (!env.PRIVATE_KEY_PATH) {
+                        error "PRIVATE_KEY_PATH is not set. Deployment will not proceed."
                     }
 
-                    // Use the private key path for deployment
+                    // Log and check the private key path
+                    echo "Private Key Path: ${env.PRIVATE_KEY_PATH}"
+                    sh "ls -al ${env.PRIVATE_KEY_PATH}"  // Debugging line to confirm key file location
+
+                    // SSH into EC2 instance using the private key
                     sh """
-                        # SSH into EC2 instance using the generated private key
-                        chmod 600 ${env.PRIVATE_KEY_PATH}
+                        chmod 600 ${env.PRIVATE_KEY_PATH}  # Ensure correct permissions
                         ssh -i ${env.PRIVATE_KEY_PATH} ubuntu@${env.TARGET_HOST} << EOF
                         docker pull ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
                         docker stop ${IMAGE_NAME} || true

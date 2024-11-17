@@ -9,5 +9,5 @@ output "main_public_ip" {
 }
 
 output "private_key_path" {
-  value = "${path.module}/cicd-keypair.pem"
+  value = "~/.ssh/cicd-keypair.pem"  # Adjust the path accordingly
 }
