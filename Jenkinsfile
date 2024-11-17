@@ -30,21 +30,20 @@ pipeline {
                     sh 'terraform init'  // Initialize Terraform
                     sh 'terraform apply -auto-approve'  // Apply the Terraform configuration
 
-                    // Capture the output from Terraform (e.g., EC2 instance IP)
+                    // Capture the output from Terraform (path to private key and EC2 IP)
                     def devIp = sh(script: 'terraform output dev_public_ip', returnStdout: true).trim()
-                    def mainIp = sh(script: 'terraform output main_public_ip', returnStdout: true).trim()
-
+                    def privateKeyPath = sh(script: 'terraform output private_key_path', returnStdout: true).trim()
+                    
                     echo "Dev Instance Public IP: ${devIp}"
-                    echo "Main Instance Public IP: ${mainIp}"
+                    echo "Private Key Path: ${privateKeyPath}"
 
-                    // Set the IP based on the branch
+                    // Set the IP based on environment
                     if (env.BRANCH_NAME == 'dev') {
                         env.TARGET_HOST = devIp
-                    } else if (env.BRANCH_NAME == 'main') {
-                        env.TARGET_HOST = mainIp
                     }
 
-                    echo "TARGET_HOST is set to: ${env.TARGET_HOST}"
+                    // Set the private key path as environment variable for later stages
+                    env.PRIVATE_KEY_PATH = privateKeyPath
                 }
             }
         }
@@ -158,29 +157,29 @@ pipeline {
         stage('Deploy to Environment') {
             steps {
                 script {
-                    // Check if TARGET_HOST is set
-                    if (!env.TARGET_HOST) {
-                        error "TARGET_HOST is not set. Deployment will not proceed."
+                    // Ensure TARGET_HOST and PRIVATE_KEY_PATH are set
+                    if (!env.TARGET_HOST || !env.PRIVATE_KEY_PATH) {
+                        error "TARGET_HOST or PRIVATE_KEY_PATH is not set. Deployment will not proceed."
                     }
 
-                    // Use withCredentials to mask the SSH key
-                    withCredentials([file(credentialsId: 'Jenkins-ssh-keypair', variable: 'SSH_KEY_PATH')]) {
-                        sh """
-                        ssh -o StrictHostKeyChecking=no -i ${SSH_KEY_PATH} ec2-user@${env.TARGET_HOST} << EOF
+                    // Use the private key path for deployment
+                    sh """
+                        # SSH into EC2 instance using the generated private key
+                        chmod 600 ${env.PRIVATE_KEY_PATH}
+                        ssh -i ${env.PRIVATE_KEY_PATH} ec2-user@${env.TARGET_HOST} << EOF
                         docker pull ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
                         docker stop ${IMAGE_NAME} || true
                         docker rm ${IMAGE_NAME} || true
                         docker run -d --name ${IMAGE_NAME} -p 80:80 ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
                         EOF
-                        """
-                    }
+                    """
                 }
             }
+        }
 
             post {
                 always {
                     cleanWs()  // Clean up workspace after the build
-                }
             }
         }
     }
