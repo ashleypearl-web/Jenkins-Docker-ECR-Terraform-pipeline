@@ -44,12 +44,8 @@ pipeline {
                     // Set the TARGET_HOST for both dev and main branch
                     env.TARGET_HOST = devIp
 
-                    // Get absolute path for the private key file
-                    env.ABSOLUTE_PRIVATE_KEY_PATH = "${env.WORKSPACE}/${privateKeyPath}"
-                    echo "Absolute Private Key Path: ${env.ABSOLUTE_PRIVATE_KEY_PATH}"
-
                     // Set the private key path as an environment variable for later stages
-                    env.PRIVATE_KEY_PATH = env.ABSOLUTE_PRIVATE_KEY_PATH  // Set directly from terraform output
+                    env.PRIVATE_KEY_PATH = privateKeyPath  // Don't add "./", just use the output as is
                 }
             }
         }
@@ -203,4 +199,5 @@ pipeline {
         }
     }
 }
+
 
