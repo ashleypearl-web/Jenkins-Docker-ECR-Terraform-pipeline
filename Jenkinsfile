@@ -42,6 +42,14 @@ pipeline {
 
                     // Set the private key path as environment variable for later stages
                     env.PRIVATE_KEY_PATH = privateKeyPath
+
+                    // Ensure private key exists in the workspace directory
+                    sh """
+                        echo "Workspace directory: \$(pwd)"
+                        echo "Checking if private key exists at path ${privateKeyPath}"
+                        ls -al ${privateKeyPath}  # Ensure the private key is present
+                        cp ${privateKeyPath} ./  # Copy the private key to the workspace directory for later use
+                    """
                 }
             }
         }
@@ -134,8 +142,7 @@ pipeline {
                     subject: "Jenkins Job - Docker Image Pushed to ECR Successfully",
                     body: "Hello,\n\nThe Docker image '${env.IMAGE_NAME}:${env.TAG}' has been successfully pushed to ECR.\n\nBest regards,\nJenkins",
                     to: "m.ehtasham.azhar@gmail.com,tamfuhashley@gmail.com",
-                    recipientProviders: [[$class: 'DevelopersRecipientProvider']]
-                )
+                    recipientProviders: [[$class: 'DevelopersRecipientProvider']])
             }
         }
 
@@ -165,14 +172,14 @@ pipeline {
                     // Ensure that the private key exists in the workspace
                     sh """
                         echo "Workspace directory: \$(pwd)"
-                        echo "Checking if private key exists at path ${env.PRIVATE_KEY_PATH}"
-                        ls -al ${env.PRIVATE_KEY_PATH}  # Debugging line to confirm key file location
-                        chmod 600 ${env.PRIVATE_KEY_PATH}  # Ensure correct permissions
+                        echo "Checking if private key exists at path ./cicd-keypair.pem"
+                        ls -al ./cicd-keypair.pem  # Debugging line to confirm key file location
+                        chmod 600 ./cicd-keypair.pem  # Ensure correct permissions
                     """
 
                     // SSH into EC2 instance using the private key
                     sh """
-                        ssh -i ${env.PRIVATE_KEY_PATH} ubuntu@${env.TARGET_HOST} << EOF
+                        ssh -i ./cicd-keypair.pem ubuntu@${env.TARGET_HOST} << EOF
                         docker pull ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
                         docker stop ${IMAGE_NAME} || true
                         docker rm ${IMAGE_NAME} || true
@@ -190,4 +197,3 @@ pipeline {
         }
     }
 }
-
