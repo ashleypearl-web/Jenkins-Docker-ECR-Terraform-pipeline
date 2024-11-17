@@ -33,7 +33,7 @@ pipeline {
                     // Capture the output from Terraform (path to private key and EC2 IP)
                     def devIp = sh(script: 'terraform output dev_public_ip', returnStdout: true).trim()
                     def privateKeyPath = sh(script: 'terraform output private_key_path', returnStdout: true).trim()
-                    
+
                     echo "Dev Instance Public IP: ${devIp}"
                     echo "Private Key Path: ${privateKeyPath}"
 
@@ -47,7 +47,6 @@ pipeline {
                 }
             }
         }
-
 
         stage('Build') {
             steps {
@@ -177,9 +176,9 @@ pipeline {
             }
         }
 
-            post {
-                always {
-                    cleanWs()  // Clean up workspace after the build
+        post {
+            always {
+                cleanWs()  // Clean up workspace after the build
             }
         }
     }
