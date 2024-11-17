@@ -43,12 +43,13 @@ pipeline {
                     // Set the private key path as environment variable for later stages
                     env.PRIVATE_KEY_PATH = privateKeyPath
 
-                    // Ensure private key exists in the workspace directory
+                    // Ensure private key exists and permissions are correct
                     sh """
                         echo "Workspace directory: \$(pwd)"
                         echo "Checking if private key exists at path ${privateKeyPath}"
-                        ls -al ${privateKeyPath}  # Ensure the private key is present
-                        cp ${privateKeyPath} ./  # Copy the private key to the workspace directory for later use
+                        ls -al ${privateKeyPath}  # Check the private key
+                        cp ${privateKeyPath} ./  # Copy private key to workspace for use in deploy
+                        chmod 600 ./cicd-keypair.pem  # Ensure proper permissions on the private key
                     """
                 }
             }
@@ -169,12 +170,12 @@ pipeline {
                     // Log and check the private key path
                     echo "Private Key Path: ${env.PRIVATE_KEY_PATH}"
 
-                    // Ensure that the private key exists in the workspace
+                    // Ensure the private key exists in the workspace
                     sh """
                         echo "Workspace directory: \$(pwd)"
                         echo "Checking if private key exists at path ./cicd-keypair.pem"
-                        ls -al ./cicd-keypair.pem  # Debugging line to confirm key file location
-                        chmod 600 ./cicd-keypair.pem  # Ensure correct permissions
+                        ls -al ./cicd-keypair.pem  # Confirm private key is in workspace
+                        chmod 600 ./cicd-keypair.pem  # Ensure correct permissions on the private key
                     """
 
                     // SSH into EC2 instance using the private key
