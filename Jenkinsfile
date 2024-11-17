@@ -37,10 +37,8 @@ pipeline {
                     echo "Dev Instance Public IP: ${devIp}"
                     echo "Private Key Path: ${privateKeyPath}"
 
-                    // Set the IP based on environment
-                    if (env.BRANCH_NAME == 'dev') {
-                        env.TARGET_HOST = devIp
-                    }
+                    // Set the TARGET_HOST for both dev and main branch
+                    env.TARGET_HOST = devIp
 
                     // Set the private key path as environment variable for later stages
                     env.PRIVATE_KEY_PATH = privateKeyPath
