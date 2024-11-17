@@ -2,9 +2,9 @@ pipeline {
     agent { label 'jenkins-slave-ubuntu' }
 
     tools {
-        maven "Maven3.9"  
-        jdk "JDK17"   
-        terraform "terraform"    
+        maven "Maven3.9"
+        jdk "JDK17"
+        terraform "terraform"
     }
 
     environment {
@@ -37,9 +37,13 @@ pipeline {
                     echo "Dev Instance Public IP: ${devIp}"
                     echo "Private Key Path: ${privateKeyPath}"
 
-                    // Set the target host and private key path as environment variables
-                    env.TARGET_HOST = devIp  // Always set the target host
-                    env.PRIVATE_KEY_PATH = privateKeyPath  // Always set the private key path
+                    // Set the IP based on environment
+                    if (env.BRANCH_NAME == 'dev') {
+                        env.TARGET_HOST = devIp
+                    }
+
+                    // Set the private key path as environment variable for later stages
+                    env.PRIVATE_KEY_PATH = privateKeyPath
                 }
             }
         }
@@ -161,7 +165,7 @@ pipeline {
                     sh """
                         # SSH into EC2 instance using the generated private key
                         chmod 600 ${env.PRIVATE_KEY_PATH}
-                        ssh -i ${env.PRIVATE_KEY_PATH} ec2-user@${env.TARGET_HOST} << EOF
+                        ssh -i ${env.PRIVATE_KEY_PATH} ubuntu@${env.TARGET_HOST} << EOF
                         docker pull ${ashleyRegistry}/${IMAGE_NAME}:${env.BUILD_NUMBER}
                         docker stop ${IMAGE_NAME} || true
                         docker rm ${IMAGE_NAME} || true
@@ -171,12 +175,11 @@ pipeline {
                 }
             }
         }
+    }
 
-        post {
-            always {
-                cleanWs()  // Clean up workspace after the build
-            }
+    post {
+        always {
+            cleanWs()  // Clean up workspace after the build
         }
     }
 }
-
