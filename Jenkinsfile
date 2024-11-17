@@ -195,7 +195,7 @@ pipeline {
 
     post {
         always {
-            cleanWs()  // Clean up workspace after the build
+            cleanWs(deleteDirs: false, patterns: '**/*.pem')  // Prevent the private key from being deleted
         }
     }
 }
