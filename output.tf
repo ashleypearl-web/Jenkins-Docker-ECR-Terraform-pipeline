@@ -9,5 +9,6 @@ output "main_public_ip" {
 }
 
 output "private_key_path" {
-  value = "~/.ssh/cicd-keypair.pem"  # Adjust the path accordingly
+  value = "${path.module}/cicd-keypair.pem"  # Save key in the same directory as your Terraform configuration
 }
+
