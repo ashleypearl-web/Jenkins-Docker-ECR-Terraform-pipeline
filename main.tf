@@ -10,6 +10,12 @@ resource "aws_key_pair" "cicd_keypair" {
   public_key = tls_private_key.cicd_key.public_key_openssh
 }
 
+# Write the private key to a file locally so it can be used by Jenkins
+resource "local_file" "private_key" {
+  content  = tls_private_key.cicd_key.private_key_pem
+  filename = "${path.module}/cicd-keypair.pem"
+}
+
 # Security Group to allow SSH, HTTP, and HTTPS traffic
 resource "aws_security_group" "web_sg" {
   name        = "web-sg"
@@ -58,3 +64,4 @@ resource "aws_instance" "dev" {
     Project = "ashleyweb"
   }
 }
+
