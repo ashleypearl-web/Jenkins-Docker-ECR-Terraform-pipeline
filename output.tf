@@ -9,7 +9,6 @@ output "main_public_ip" {
 }
 
 output "private_key_path" {
-  description = "The path to the private key for accessing EC2 instances"
-  value       = "./cicd-keypair.pem"
+  value = "${path.module}/cicd-keypair.pem"
 }
 
