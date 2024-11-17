@@ -33,17 +33,13 @@ pipeline {
                     // Capture the output from Terraform (path to private key and EC2 IP)
                     def devIp = sh(script: 'terraform output dev_public_ip', returnStdout: true).trim()
                     def privateKeyPath = sh(script: 'terraform output private_key_path', returnStdout: true).trim()
-
+                    
                     echo "Dev Instance Public IP: ${devIp}"
                     echo "Private Key Path: ${privateKeyPath}"
 
-                    // Set the IP based on environment
-                    if (env.BRANCH_NAME == 'dev') {
-                        env.TARGET_HOST = devIp
-                    }
-
-                    // Set the private key path as environment variable for later stages
-                    env.PRIVATE_KEY_PATH = privateKeyPath
+                    // Set the target host and private key path as environment variables
+                    env.TARGET_HOST = devIp  // Always set the target host
+                    env.PRIVATE_KEY_PATH = privateKeyPath  // Always set the private key path
                 }
             }
         }
@@ -175,11 +171,11 @@ pipeline {
                 }
             }
         }
-    }
 
-    post {
-        always {
-            cleanWs()  // Clean up workspace after the build
+        post {
+            always {
+                cleanWs()  // Clean up workspace after the build
+            }
         }
     }
 }
